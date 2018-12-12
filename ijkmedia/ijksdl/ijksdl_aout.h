@@ -25,6 +25,11 @@
 #ifndef IJKSDL__IJKSDL_AOUT_H
 #define IJKSDL__IJKSDL_AOUT_H
 
+#ifndef _begin_code_h
+#include "thirdparty/SDL2/begin_code.h"
+#endif
+
+
 #include "ijksdl_audio.h"
 #include "ijksdl_class.h"
 #include "ijksdl_mutex.h"
@@ -56,23 +61,24 @@ struct SDL_Aout {
     int    (*func_get_audio_session_id)(SDL_Aout *aout);
 };
 
-int SDL_AoutOpenAudio(SDL_Aout *aout, const SDL_AudioSpec *desired, SDL_AudioSpec *obtained);
-void SDL_AoutPauseAudio(SDL_Aout *aout, int pause_on);
-void SDL_AoutFlushAudio(SDL_Aout *aout);
-void SDL_AoutSetStereoVolume(SDL_Aout *aout, float left_volume, float right_volume);
-void SDL_AoutCloseAudio(SDL_Aout *aout);
-void SDL_AoutFree(SDL_Aout *aout);
-void SDL_AoutFreeP(SDL_Aout **paout);
+extern DECLSPEC int SDLCALL SDL_AoutOpenAudio(SDL_Aout *aout, const SDL_AudioSpec *desired, SDL_AudioSpec *obtained);
+extern DECLSPEC void SDLCALL SDL_AoutPauseAudio(SDL_Aout *aout, int pause_on);
+extern DECLSPEC void SDLCALL SDL_AoutFlushAudio(SDL_Aout *aout);
+extern DECLSPEC void SDLCALL SDL_AoutSetStereoVolume(SDL_Aout *aout, float left_volume, float right_volume);
+extern DECLSPEC void SDLCALL SDL_AoutSetStereoVolume(SDL_Aout *aout, float left_volume, float right_volume);
+extern DECLSPEC void SDLCALL SDL_AoutCloseAudio(SDL_Aout *aout);
+extern DECLSPEC void SDLCALL SDL_AoutFree(SDL_Aout *aout);
+extern DECLSPEC void SDLCALL SDL_AoutFreeP(SDL_Aout **paout);
 
-double SDL_AoutGetLatencySeconds(SDL_Aout *aout);
-void   SDL_AoutSetDefaultLatencySeconds(SDL_Aout *aout, double latency);
-int    SDL_AoutGetAudioPerSecondCallBacks(SDL_Aout *aout);
+extern DECLSPEC double SDLCALL SDL_AoutGetLatencySeconds(SDL_Aout *aout);
+extern DECLSPEC void SDLCALL  SDL_AoutSetDefaultLatencySeconds(SDL_Aout *aout, double latency);
+extern DECLSPEC int  SDLCALL  SDL_AoutGetAudioPerSecondCallBacks(SDL_Aout *aout);
 
 // optional
-void   SDL_AoutSetPlaybackRate(SDL_Aout *aout, float playbackRate);
-void   SDL_AoutSetPlaybackVolume(SDL_Aout *aout, float volume);
+extern DECLSPEC void  SDLCALL SDL_AoutSetPlaybackRate(SDL_Aout *aout, float playbackRate);
+extern DECLSPEC void  SDLCALL SDL_AoutSetPlaybackVolume(SDL_Aout *aout, float volume);
 
 // android only
 int    SDL_AoutGetAudioSessionId(SDL_Aout *aout);
-
+#include "thirdparty/SDL2/close_code.h"
 #endif

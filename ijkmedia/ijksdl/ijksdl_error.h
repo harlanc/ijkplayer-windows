@@ -25,6 +25,11 @@
 #ifndef IJKSDL__IJKSDL_ERROR_H
 #define IJKSDL__IJKSDL_ERROR_H
 
-const char *SDL_GetError(void);
+#ifndef _begin_code_h
+#include "thirdparty/SDL2/begin_code.h"
+#endif
+
+
+extern DECLSPEC const char * SDLCALL SDL_GetError(void);
 
 #endif

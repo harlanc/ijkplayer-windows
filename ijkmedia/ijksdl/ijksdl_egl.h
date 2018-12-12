@@ -32,6 +32,10 @@
 #endif
 #include "ijksdl_class.h"
 
+#ifdef _WIN32
+#include "windows/ijksdl_utils_win.h"
+#endif
+
 typedef struct SDL_VoutOverlay SDL_VoutOverlay;
 typedef struct IJK_EGL_Opaque  IJK_EGL_Opaque;
 
@@ -42,10 +46,15 @@ enum {
 };
 #endif
 
+typedef struct SDL_EGL_VideoData SDL_EGL_VideoData;
+
 typedef struct IJK_EGL
 {
     SDL_Class      *opaque_class;
     IJK_EGL_Opaque *opaque;
+#ifdef _WIN32
+    SDL_EGL_VideoData *egl_data;
+#endif
 
     EGLNativeWindowType window;
 

@@ -49,6 +49,114 @@ static EGLBoolean IJK_EGL_isValid(IJK_EGL* egl)
     return EGL_FALSE;
 }
 
+#ifdef _WIN32
+
+typedef struct SDL_EGL_VideoData
+{
+    void *egl_dll_handle, *dll_handle;
+    EGLDisplay egl_display;
+    EGLConfig egl_config;
+    int egl_swapinterval;
+    int egl_surfacetype;
+    
+    EGLDisplay(__stdcall *eglGetDisplay) (NativeDisplayType display);
+    EGLDisplay(__stdcall *eglGetPlatformDisplay) (EGLenum platform,
+                                void *native_display,
+                                const EGLint *attrib_list);
+    EGLDisplay(__stdcall *eglGetPlatformDisplayEXT) (EGLenum platform,
+                                void *native_display,
+                                const EGLint *attrib_list);
+    EGLBoolean(__stdcall *eglInitialize) (EGLDisplay dpy, EGLint * major,
+                                EGLint * minor);
+    EGLBoolean(__stdcall  *eglTerminate) (EGLDisplay dpy);
+    
+    void *(__stdcall *eglGetProcAddress) (const char * procName);
+    
+    EGLBoolean(__stdcall *eglChooseConfig) (EGLDisplay dpy,
+                                  const EGLint * attrib_list,
+                                  EGLConfig * configs,
+                                  EGLint config_size, EGLint * num_config);
+    
+    EGLContext(__stdcall *eglCreateContext) (EGLDisplay dpy,
+                                   EGLConfig config,
+                                   EGLContext share_list,
+                                   const EGLint * attrib_list);
+    
+    EGLBoolean(__stdcall *eglDestroyContext) (EGLDisplay dpy, EGLContext ctx);
+    
+    EGLSurface(__stdcall *eglCreatePbufferSurface)(EGLDisplay dpy, EGLConfig config,
+                                                     EGLint const* attrib_list);
+
+    EGLSurface(__stdcall *eglCreateWindowSurface) (EGLDisplay dpy,
+                                         EGLConfig config,
+                                         NativeWindowType window,
+                                         const EGLint * attrib_list);
+    EGLBoolean(__stdcall *eglDestroySurface) (EGLDisplay dpy, EGLSurface surface);
+    
+    EGLBoolean(__stdcall *eglMakeCurrent) (EGLDisplay dpy, EGLSurface draw,
+                                 EGLSurface read, EGLContext ctx);
+    
+    EGLBoolean(__stdcall *eglSwapBuffers) (EGLDisplay dpy, EGLSurface draw);
+    
+    EGLBoolean(__stdcall *eglSwapInterval) (EGLDisplay dpy, EGLint interval);
+    
+    const char *(__stdcall *eglQueryString) (EGLDisplay dpy, EGLint name);
+    
+    EGLBoolean(__stdcall  *eglGetConfigAttrib) (EGLDisplay dpy, EGLConfig config,
+                                     EGLint attribute, EGLint * value);
+    
+    EGLBoolean(__stdcall *eglWaitNative) (EGLint  engine);
+
+    EGLBoolean(__stdcall *eglWaitGL)(void);
+    
+    EGLBoolean(__stdcall *eglBindAPI)(EGLenum);
+
+    EGLint(__stdcall *eglGetError)(void);
+
+    EGLBoolean(__stdcall *eglReleaseThread) (void);
+
+    EGLBoolean(__stdcall *eglQuerySurface) (EGLDisplay dpy, EGLSurface surface, EGLint attribute, EGLint *value);
+
+} SDL_EGL_VideoData;
+
+
+
+
+
+
+static void IJK_EGL_loadLibrary(IJK_EGL* egl)
+{
+
+
+    egl->egl_data->dll_handle = SDL_LoadObject("libEGL.dll");
+    /* Load new function pointers */
+    LOAD_FUNC(eglGetDisplay);
+	LOAD_FUNC(eglGetPlatformDisplayEXT);
+    LOAD_FUNC(eglInitialize);
+    LOAD_FUNC(eglTerminate);
+    LOAD_FUNC(eglGetProcAddress);
+    LOAD_FUNC(eglChooseConfig);
+    LOAD_FUNC(eglGetConfigAttrib);
+    LOAD_FUNC(eglCreateContext);
+    LOAD_FUNC(eglDestroyContext);
+    LOAD_FUNC(eglCreatePbufferSurface);
+    LOAD_FUNC(eglCreateWindowSurface);
+    LOAD_FUNC(eglDestroySurface);
+    LOAD_FUNC(eglMakeCurrent);
+    LOAD_FUNC(eglSwapBuffers);
+    LOAD_FUNC(eglSwapInterval);
+    LOAD_FUNC(eglWaitNative);
+    LOAD_FUNC(eglWaitGL);
+    LOAD_FUNC(eglBindAPI);
+    LOAD_FUNC(eglQueryString);
+    LOAD_FUNC(eglGetError);
+	LOAD_FUNC(eglReleaseThread);
+}
+
+
+
+#endif
+
 void IJK_EGL_terminate(IJK_EGL* egl)
 {
     if (!IJK_EGL_isValid(egl))
@@ -56,7 +164,17 @@ void IJK_EGL_terminate(IJK_EGL* egl)
 
     if (egl->opaque)
         IJK_GLES2_Renderer_freeP(&egl->opaque->renderer);
-
+#ifdef _WIN32
+    if (egl->display) {
+        egl->egl_data->eglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        if (egl->context)
+            egl->egl_data->eglDestroyContext(egl->display, egl->context);
+        if (egl->surface)
+            egl->egl_data->eglDestroySurface(egl->display, egl->surface);
+        egl->egl_data->eglTerminate(egl->display);
+        egl->egl_data->eglReleaseThread(); // FIXME: call at thread exit
+    }
+#else
     if (egl->display) {
         eglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         if (egl->context)
@@ -66,7 +184,7 @@ void IJK_EGL_terminate(IJK_EGL* egl)
         eglTerminate(egl->display);
         eglReleaseThread(); // FIXME: call at thread exit
     }
-
+#endif
     egl->context = EGL_NO_CONTEXT;
     egl->surface = EGL_NO_SURFACE;
     egl->display = EGL_NO_DISPLAY;
@@ -75,9 +193,14 @@ void IJK_EGL_terminate(IJK_EGL* egl)
 static int IJK_EGL_getSurfaceWidth(IJK_EGL* egl)
 {
     EGLint width = 0;
+#ifdef _WIN32
+    if (!egl->egl_data->eglQuerySurface(egl->display, egl->surface, EGL_WIDTH, &width)) {
+		ALOGE("[EGL] eglQuerySurface(EGL_WIDTH) returned error %d", egl->egl_data->eglGetError());
+#else
     if (!eglQuerySurface(egl->display, egl->surface, EGL_WIDTH, &width)) {
-        ALOGE("[EGL] eglQuerySurface(EGL_WIDTH) returned error %d", eglGetError());
-        return 0;
+		ALOGE("[EGL] eglQuerySurface(EGL_WIDTH) returned error %d", eglGetError());
+#endif
+    return 0;
     }
 
     return width;
@@ -86,8 +209,14 @@ static int IJK_EGL_getSurfaceWidth(IJK_EGL* egl)
 static int IJK_EGL_getSurfaceHeight(IJK_EGL* egl)
 {
     EGLint height = 0;
+#ifdef _WIN32
+    if (!egl->egl_data->eglQuerySurface(egl->display, egl->surface, EGL_HEIGHT, &height)) {
+		ALOGE("[EGL] eglQuerySurface(EGL_HEIGHT) returned error %d", egl->egl_data->eglGetError());
+#else
     if (!eglQuerySurface(egl->display, egl->surface, EGL_HEIGHT, &height)) {
         ALOGE("[EGL] eglQuerySurface(EGL_HEIGHT) returned error %d", eglGetError());
+#endif
+ 
         return 0;
     }
 
@@ -120,6 +249,12 @@ static EGLBoolean IJK_EGL_setSurfaceSize(IJK_EGL* egl, int width, int height)
     }
 
     return EGL_TRUE;
+#elif _WIN32
+	egl->width	= 320;
+	egl->height = 240;
+
+    return EGL_TRUE;
+
 #else
     // FIXME: other platform?
 #endif
@@ -132,8 +267,11 @@ static EGLBoolean IJK_EGL_makeCurrent(IJK_EGL* egl, EGLNativeWindowType window)
         egl->display &&
         egl->surface &&
         egl->context) {
-
+#ifdef _WIN32
+        if (!egl->egl_data->eglMakeCurrent(egl->display, egl->surface, egl->surface, egl->context)) {
+#else
         if (!eglMakeCurrent(egl->display, egl->surface, egl->surface, egl->context)) {
+#endif
             ALOGE("[EGL] elgMakeCurrent() failed (cached)\n");
             return EGL_FALSE;
         }
@@ -146,8 +284,20 @@ static EGLBoolean IJK_EGL_makeCurrent(IJK_EGL* egl, EGLNativeWindowType window)
 
     if (!window)
         return EGL_FALSE;
+#ifdef _WIN32
+    const EGLint displayAttributes[] =
+    {
+        EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
+        EGL_NONE,
+    };
 
+	HDC mHDC = GetDC(window);
+
+    EGLDisplay display = egl->egl_data->eglGetPlatformDisplayEXT(EGL_PLATFORM_ANGLE_ANGLE, mHDC, displayAttributes);//eglGetDisplay(EGL_DEFAULT_DISPLAY);
+#else
     EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+#endif
+ 
     if (display == EGL_NO_DISPLAY) {
         ALOGE("[EGL] eglGetDisplay failed\n");
         return EGL_FALSE;
@@ -155,12 +305,40 @@ static EGLBoolean IJK_EGL_makeCurrent(IJK_EGL* egl, EGLNativeWindowType window)
 
 
     EGLint major, minor;
+#ifdef _WIN32
+    if (!egl->egl_data->eglInitialize(display, &major, &minor)) {
+#else
     if (!eglInitialize(display, &major, &minor)) {
+#endif
         ALOGE("[EGL] eglInitialize failed\n");
         return EGL_FALSE;   
     }
     ALOGI("[EGL] eglInitialize %d.%d\n", (int)major, (int)minor);
 
+
+    static const EGLint contextAttribs[] = {
+        EGL_CONTEXT_CLIENT_VERSION, 2,
+        EGL_NONE
+    };
+
+    EGLConfig config;
+    EGLint numConfig;
+#ifdef _WIN32
+    const EGLint configAttribs[] =
+    {
+        EGL_RED_SIZE, 8,
+        EGL_GREEN_SIZE, 8,
+        EGL_BLUE_SIZE, 8,
+        EGL_ALPHA_SIZE, 8,
+        EGL_DEPTH_SIZE, 8,
+        EGL_STENCIL_SIZE, 8,
+        EGL_NONE
+    };
+
+    if (!egl->egl_data->eglChooseConfig(display, configAttribs, &config, 1, &numConfig)) {
+		ALOGE("[EGL] eglChooseConfig failed\n");
+        egl->egl_data->eglTerminate(display);
+#else
 
     static const EGLint configAttribs[] = {
         EGL_RENDERABLE_TYPE,    EGL_OPENGL_ES2_BIT,
@@ -171,16 +349,11 @@ static EGLBoolean IJK_EGL_makeCurrent(IJK_EGL* egl, EGLNativeWindowType window)
         EGL_NONE
     };
 
-    static const EGLint contextAttribs[] = {
-        EGL_CONTEXT_CLIENT_VERSION, 2,
-        EGL_NONE
-    };
-
-    EGLConfig config;
-    EGLint numConfig;
     if (!eglChooseConfig(display, configAttribs, &config, 1, &numConfig)) {
         ALOGE("[EGL] eglChooseConfig failed\n");
         eglTerminate(display);
+#endif
+
         return EGL_FALSE;
     }
 
@@ -204,14 +377,38 @@ static EGLBoolean IJK_EGL_makeCurrent(IJK_EGL* egl, EGLNativeWindowType window)
         }
     }
 #endif
-
+#ifdef _WIN32
+    EGLSurface surface = egl->egl_data->eglCreateWindowSurface(display, config, window, NULL);
+#else
     EGLSurface surface = eglCreateWindowSurface(display, config, window, NULL);
+#endif
     if (surface == EGL_NO_SURFACE) {
         ALOGE("[EGL] eglCreateWindowSurface failed\n");
+#ifdef _WIN32
+        egl->egl_data->eglTerminate(display);
+#else
         eglTerminate(display);
+#endif
         return EGL_FALSE;
     }
 
+#ifdef _WIN32
+    EGLSurface context = egl->egl_data->eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
+    if (context == EGL_NO_CONTEXT) {
+        ALOGE("[EGL] eglCreateContext failed\n");
+        egl->egl_data->eglDestroySurface(display, surface);
+        egl->egl_data->eglTerminate(display);
+        return EGL_FALSE;
+    }
+
+    if (!egl->egl_data->eglMakeCurrent(display, surface, surface, context)) {
+        ALOGE("[EGL] elgMakeCurrent() failed (new)\n");
+        egl->egl_data->eglDestroyContext(display, context);
+        egl->egl_data->eglDestroySurface(display, surface);
+        egl->egl_data->eglTerminate(display);
+        return EGL_FALSE;
+    }
+#else
     EGLSurface context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
     if (context == EGL_NO_CONTEXT) {
         ALOGE("[EGL] eglCreateContext failed\n");
@@ -227,6 +424,7 @@ static EGLBoolean IJK_EGL_makeCurrent(IJK_EGL* egl, EGLNativeWindowType window)
         eglTerminate(display);
         return EGL_FALSE;
     }
+#endif
 
 #if 0
 #if defined(__ANDROID__)
@@ -257,7 +455,6 @@ static EGLBoolean IJK_EGL_makeCurrent(IJK_EGL* egl, EGLNativeWindowType window)
     ALOGI("[EGL] GLES2 extensions end.\n");
 #endif
 
-    IJK_GLES2_Renderer_setupGLES();
 
     egl->context = context;
     egl->surface = surface;
@@ -291,12 +488,17 @@ static EGLBoolean IJK_EGL_prepareRenderer(IJK_EGL* egl, SDL_VoutOverlay *overlay
         }
     }
 
+    IJK_GLES2_Renderer_setupGLES();
+
     if (!IJK_EGL_setSurfaceSize(egl, overlay->w, overlay->h)) {
         ALOGE("[EGL] IJK_EGL_setSurfaceSize(%d, %d) failed\n", overlay->w, overlay->h);
         return EGL_FALSE;
     }
-
+#ifdef _WIN32
+    global_render_data->glViewport(0, 0, egl->width, egl->height);  IJK_GLES2_checkError_TRACE("glViewport");
+#else
     glViewport(0, 0, egl->width, egl->height);  IJK_GLES2_checkError_TRACE("glViewport");
+#endif
     return EGL_TRUE;
 }
 
@@ -313,8 +515,11 @@ static EGLBoolean IJK_EGL_display_internal(IJK_EGL* egl, EGLNativeWindowType win
         ALOGE("[EGL] IJK_GLES2_render failed\n");
         return EGL_FALSE; 
     }
-
+#ifdef _WIN32
+    egl->egl_data->eglSwapBuffers(egl->display, egl->surface);
+#else
     eglSwapBuffers(egl->display, egl->surface);
+#endif
 
     return EGL_TRUE;
 }
@@ -333,8 +538,14 @@ EGLBoolean IJK_EGL_display(IJK_EGL* egl, EGLNativeWindowType window, SDL_VoutOve
         return EGL_FALSE;
 
     ret = IJK_EGL_display_internal(egl, window, overlay);
+
+#ifdef _WIN32
+    egl->egl_data->eglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    egl->egl_data->eglReleaseThread(); // FIXME: call at thread exit
+#else
     eglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     eglReleaseThread(); // FIXME: call at thread exit
+#endif
     return ret;
 }
 
@@ -382,6 +593,13 @@ IJK_EGL *IJK_EGL_create()
         free(egl);
         return NULL;
     }
+
+	#ifdef _WIN32
+    egl->egl_data = (SDL_EGL_VideoData*)mallocz(sizeof(SDL_EGL_VideoData));
+    if(!egl->egl_data)
+        return NULL;
+    IJK_EGL_loadLibrary(egl);
+    #endif
 
     return egl;
 }

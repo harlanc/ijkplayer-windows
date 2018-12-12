@@ -27,7 +27,11 @@ static void IJK_GLES2_printShaderInfo(GLuint shader)
         return;
 
     GLint info_len = 0;
+#ifdef _WIN32
+    global_render_data->glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_len);
+#else
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_len);
+#endif
     if (!info_len) {
         ALOGE("[GLES2][Shader] empty info\n");
         return;
@@ -44,8 +48,11 @@ static void IJK_GLES2_printShaderInfo(GLuint shader)
             buf_len = info_len;
         }
     }
-
+#ifdef _WIN32
+    global_render_data->glGetShaderInfoLog(shader, buf_len, NULL, buf);
+#else
     glGetShaderInfoLog(shader, buf_len, NULL, buf);
+#endif
     ALOGE("[GLES2][Shader] error %s\n", buf);
 
     if (buf_heap)
@@ -55,7 +62,19 @@ static void IJK_GLES2_printShaderInfo(GLuint shader)
 GLuint IJK_GLES2_loadShader(GLenum shader_type, const char *shader_source)
 {
     assert(shader_source);
+#ifdef _WIN32
+    GLuint shader = global_render_data->glCreateShader(shader_type);        IJK_GLES2_checkError("glCreateShader");
+    if (!shader)
+        return 0;
 
+    assert(shader_source);
+
+    global_render_data->glShaderSource(shader, 1, &shader_source, NULL);    IJK_GLES2_checkError_TRACE("glShaderSource");
+    global_render_data->glCompileShader(shader);                            IJK_GLES2_checkError_TRACE("glCompileShader");
+
+    GLint compile_status = 0;
+    global_render_data->glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_status);
+#else
     GLuint shader = glCreateShader(shader_type);        IJK_GLES2_checkError("glCreateShader");
     if (!shader)
         return 0;
@@ -67,6 +86,7 @@ GLuint IJK_GLES2_loadShader(GLenum shader_type, const char *shader_source)
 
     GLint compile_status = 0;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_status);
+#endif
     if (!compile_status)
         goto fail;
 
@@ -76,7 +96,11 @@ fail:
 
     if (shader) {
         IJK_GLES2_printShaderInfo(shader);
+#ifdef _WIN32
+        global_render_data->glDeleteShader(shader);
+#else
         glDeleteShader(shader);
+#endif
     }
 
     return 0;

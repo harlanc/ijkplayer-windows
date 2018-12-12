@@ -35,6 +35,20 @@
 
 typedef struct IJK_GLES2_Renderer_Opaque IJK_GLES2_Renderer_Opaque;
 
+typedef struct
+{
+
+
+#define SDL_PROC(ret,func,params) ret (__stdcall *func) params;
+#define SDL_PROC_OES SDL_PROC
+#include "SDL_gles2funcs.h"
+#undef SDL_PROC
+#undef SDL_PROC_OES
+
+
+
+} IJK_GLES2_RenderData;
+
 typedef struct IJK_GLES2_Renderer
 {
     IJK_GLES2_Renderer_Opaque *opaque;
@@ -76,6 +90,10 @@ typedef struct IJK_GLES2_Renderer
 
     GLsizei last_buffer_width;
 } IJK_GLES2_Renderer;
+
+#ifdef _WIN32
+    IJK_GLES2_RenderData *global_render_data;
+#endif
 
 typedef struct IJK_GLES_Matrix
 {

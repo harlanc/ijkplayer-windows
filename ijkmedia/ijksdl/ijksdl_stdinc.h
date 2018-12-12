@@ -25,6 +25,11 @@
 #ifndef IJKSDL__IJKSDL_STDINC_H
 #define IJKSDL__IJKSDL_STDINC_H
 
+#ifndef _begin_code_h
+#include "thirdparty/SDL2/begin_code.h"
+#endif
+
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -38,6 +43,6 @@ typedef uint32_t    Uint32;
 typedef int64_t     Sint64;
 typedef uint64_t    Uint64;
 
-char *SDL_getenv(const char *name);
+extern DECLSPEC char * SDLCALL SDL_getenv(const char *name);
 
 #endif

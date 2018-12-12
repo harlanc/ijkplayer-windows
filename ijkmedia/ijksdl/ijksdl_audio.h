@@ -25,6 +25,10 @@
 #ifndef IJKSDL__IJKSDL_AUDIO_H
 #define IJKSDL__IJKSDL_AUDIO_H
 
+#ifndef _begin_code_h
+#include "thirdparty/SDL2/begin_code.h"
+#endif
+
 #include "ijksdl_stdinc.h"
 #include "ijksdl_endian.h"
 
@@ -90,9 +94,9 @@ typedef struct SDL_AudioSpec
     void *userdata;
 } SDL_AudioSpec;
 
-void SDL_CalculateAudioSpec(SDL_AudioSpec * spec);
+extern DECLSPEC void SDLCALL SDL_CalculateAudioSpec(SDL_AudioSpec * spec);
 
-void SDL_MixAudio(Uint8*       dst,
+extern DECLSPEC void SDLCALL SDL_MixAudio(Uint8*       dst,
                   const Uint8* src,
                   Uint32       len,
                   int          volume);

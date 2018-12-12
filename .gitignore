@@ -41,3 +41,9 @@ xcuserdata
 xcshareddata
 *.xccheckout
 
+#mingw windows
+.deps/
+.libs/
+autom4te.cache/
+*.o
+*.lo

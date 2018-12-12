@@ -352,7 +352,7 @@ void ijkio_manager_will_share_cache_map(IjkIOManagerContext *h) {
     ijk_map_traversal_handle(h->ijkio_app_ctx->cache_info_map, map_tree_info_fp, ijkio_manager_save_tree_to_file);
     fclose(map_tree_info_fp);
     if (h->ijkio_app_ctx->fd >= 0) {
-        fsync(h->ijkio_app_ctx->fd);
+        fflush(h->ijkio_app_ctx->fd);
     }
     pthread_mutex_unlock(&h->ijkio_app_ctx->mutex);
 }

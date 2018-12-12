@@ -36,7 +36,7 @@
 static void *SDL_RunThread(void *data)
 {
     SDL_Thread *thread = data;
-    ALOGI("SDL_RunThread: [%d] %s\n", (int)gettid(), thread->name);
+    //ALOGI("SDL_RunThread: [%d] %s\n", (int)gettid(), thread->name);
     pthread_setname_np(pthread_self(), thread->name);
     thread->retval = thread->func(thread->data);
 #ifdef __ANDROID__
@@ -49,7 +49,7 @@ SDL_Thread *SDL_CreateThreadEx(SDL_Thread *thread, int (*fn)(void *), void *data
 {
     thread->func = fn;
     thread->data = data;
-    strlcpy(thread->name, name, sizeof(thread->name) - 1);
+    strncpy(thread->name, name, sizeof(thread->name) - 1);
     int retval = pthread_create(&thread->id, NULL, SDL_RunThread, thread);
     if (retval)
         return NULL;

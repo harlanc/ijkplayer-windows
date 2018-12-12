@@ -22,24 +22,34 @@
 #include "internal.h"
 
 void IJK_GLES2_checkError(const char* op) {
+#ifdef _WIN32
+    for (GLint error = global_render_data->glGetError(); error; error = global_render_data->glGetError()) {
+        ALOGE("[GLES2] after %s() glError (0x%x)\n", op, error);
+    }
+#else
     for (GLint error = glGetError(); error; error = glGetError()) {
         ALOGE("[GLES2] after %s() glError (0x%x)\n", op, error);
     }
+#endif
 }
 
 void IJK_GLES2_printString(const char *name, GLenum s) {
+#ifdef _WIN32
+    const char *v = (const char *) global_render_data->glGetString(s);
+#else
     const char *v = (const char *) glGetString(s);
+#endif
     ALOGI("[GLES2] %s = %s\n", name, v);
 }
 
-void IJK_GLES2_loadOrtho(IJK_GLES_Matrix *matrix, GLfloat left, GLfloat right, GLfloat bottom, GLfloat top, GLfloat near, GLfloat far)
+void IJK_GLES2_loadOrtho(IJK_GLES_Matrix *matrix, GLfloat left, GLfloat right, GLfloat bottom, GLfloat top, GLfloat nnear, GLfloat ffar)
 {
     GLfloat r_l = right - left;
     GLfloat t_b = top - bottom;
-    GLfloat f_n = far - near;
+    GLfloat f_n = ffar - nnear;
     GLfloat tx = - (right + left) / (right - left);
     GLfloat ty = - (top + bottom) / (top - bottom);
-    GLfloat tz = - (far + near) / (far - near);
+    GLfloat tz = - (ffar + nnear) / (ffar - nnear);
 
     matrix->m[0] = 2.0f / r_l;
     matrix->m[1] = 0.0f;

@@ -117,9 +117,9 @@ int ijk_av_dict_set(IjkAVDictionary **pm, const char *key, const char *value,
             char *newval = (char *)calloc(1, len);
             if (!newval)
                 goto err_out;
-            strlcat(newval, oldval, len);
+            strncat(newval, oldval, len);
             ijk_av_freep(&oldval);
-            strlcat(newval, copy_value, len);
+            strncat(newval, copy_value, len);
             m->elems[m->count].value = newval;
             ijk_av_freep(&copy_value);
         }

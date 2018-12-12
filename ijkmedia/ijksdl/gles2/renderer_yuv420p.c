@@ -24,6 +24,27 @@
 static GLboolean yuv420p_use(IJK_GLES2_Renderer *renderer)
 {
     ALOGI("use render yuv420p\n");
+#ifdef _WIN32
+    global_render_data->glPixelStorei(GL_UNPACK_ALIGNMENT, 1);      IJK_GLES2_checkError_TRACE("glPixelStorei");
+    global_render_data->glUseProgram(renderer->program);            IJK_GLES2_checkError_TRACE("glUseProgram");
+
+    if (0 == renderer->plane_textures[0])
+        global_render_data->glGenTextures(3, renderer->plane_textures);
+
+    for (int i = 0; i < 3; ++i) {
+        global_render_data->glActiveTexture(GL_TEXTURE0 + i); IJK_GLES2_checkError_TRACE("glActiveTexture");
+        global_render_data->glBindTexture(GL_TEXTURE_2D, renderer->plane_textures[i]);IJK_GLES2_checkError_TRACE("glBindTexture");
+
+        global_render_data->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);IJK_GLES2_checkError_TRACE("glTexParameteri");
+        global_render_data->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);IJK_GLES2_checkError_TRACE("glTexParameteri");
+        global_render_data->glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);IJK_GLES2_checkError_TRACE("glTexParameteri");
+        global_render_data->glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);IJK_GLES2_checkError_TRACE("glTexParameteri");
+
+        global_render_data->glUniform1i(renderer->us2_sampler[i], i);IJK_GLES2_checkError_TRACE("glUniform1i");
+    }
+
+    global_render_data->glUniformMatrix3fv(renderer->um3_color_conversion, 1, GL_FALSE, IJK_GLES2_getColorMatrix_bt709());IJK_GLES2_checkError_TRACE("glUniformMatrix3fv");
+#else
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     glUseProgram(renderer->program);            IJK_GLES2_checkError_TRACE("glUseProgram");
@@ -44,7 +65,7 @@ static GLboolean yuv420p_use(IJK_GLES2_Renderer *renderer)
     }
 
     glUniformMatrix3fv(renderer->um3_color_conversion, 1, GL_FALSE, IJK_GLES2_getColorMatrix_bt709());
-
+#endif
     return GL_TRUE;
 }
 
@@ -80,7 +101,20 @@ static GLboolean yuv420p_uploadTexture(IJK_GLES2_Renderer *renderer, SDL_VoutOve
 
     for (int i = 0; i < 3; ++i) {
         int plane = planes[i];
+#ifdef _WIN32
 
+        global_render_data->glBindTexture(GL_TEXTURE_2D, renderer->plane_textures[i]); IJK_GLES2_checkError_TRACE("glBindTexture");
+
+        global_render_data->glTexImage2D(GL_TEXTURE_2D,
+                     0,
+                     GL_LUMINANCE,
+                     widths[plane],
+                     heights[plane],
+                     0,
+                     GL_LUMINANCE,
+                     GL_UNSIGNED_BYTE,
+                     pixels[plane]); IJK_GLES2_checkError_TRACE("glTexImage2D");
+#else
         glBindTexture(GL_TEXTURE_2D, renderer->plane_textures[i]);
 
         glTexImage2D(GL_TEXTURE_2D,
@@ -92,6 +126,7 @@ static GLboolean yuv420p_uploadTexture(IJK_GLES2_Renderer *renderer, SDL_VoutOve
                      GL_LUMINANCE,
                      GL_UNSIGNED_BYTE,
                      pixels[plane]);
+#endif
     }
 
     return GL_TRUE;
@@ -103,13 +138,20 @@ IJK_GLES2_Renderer *IJK_GLES2_Renderer_create_yuv420p()
     IJK_GLES2_Renderer *renderer = IJK_GLES2_Renderer_create_base(IJK_GLES2_getFragmentShader_yuv420p());
     if (!renderer)
         goto fail;
+#ifdef _WIN32
+    renderer->us2_sampler[0] = global_render_data->glGetUniformLocation(renderer->program, "us2_SamplerX"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerX)");
+    renderer->us2_sampler[1] = global_render_data->glGetUniformLocation(renderer->program, "us2_SamplerY"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerY)");
+    renderer->us2_sampler[2] = global_render_data->glGetUniformLocation(renderer->program, "us2_SamplerZ"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerZ)");
 
+    renderer->um3_color_conversion = global_render_data->glGetUniformLocation(renderer->program, "um3_ColorConversion"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(um3_ColorConversionMatrix)");
+
+#else
     renderer->us2_sampler[0] = glGetUniformLocation(renderer->program, "us2_SamplerX"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerX)");
     renderer->us2_sampler[1] = glGetUniformLocation(renderer->program, "us2_SamplerY"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerY)");
     renderer->us2_sampler[2] = glGetUniformLocation(renderer->program, "us2_SamplerZ"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerZ)");
 
     renderer->um3_color_conversion = glGetUniformLocation(renderer->program, "um3_ColorConversion"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(um3_ColorConversionMatrix)");
-
+#endif
     renderer->func_use            = yuv420p_use;
     renderer->func_getBufferWidth = yuv420p_getBufferWidth;
     renderer->func_uploadTexture  = yuv420p_uploadTexture;

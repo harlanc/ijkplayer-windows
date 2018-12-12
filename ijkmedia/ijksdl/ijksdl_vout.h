@@ -25,6 +25,10 @@
 #ifndef IJKSDL__IJKSDL_VOUT_H
 #define IJKSDL__IJKSDL_VOUT_H
 
+#ifndef _begin_code_h
+#include "thirdparty/SDL2/begin_code.h"
+#endif
+
 #include "ijksdl_stdinc.h"
 #include "ijksdl_class.h"
 #include "ijksdl_mutex.h"
@@ -71,16 +75,16 @@ struct SDL_Vout {
     Uint32 overlay_format;
 };
 
-void SDL_VoutFree(SDL_Vout *vout);
-void SDL_VoutFreeP(SDL_Vout **pvout);
-int  SDL_VoutDisplayYUVOverlay(SDL_Vout *vout, SDL_VoutOverlay *overlay);
-int  SDL_VoutSetOverlayFormat(SDL_Vout *vout, Uint32 overlay_format);
+extern DECLSPEC void SDLCALL SDL_VoutFree(SDL_Vout *vout);
+extern DECLSPEC void SDLCALL SDL_VoutFreeP(SDL_Vout **pvout);
+extern DECLSPEC int SDLCALL SDL_VoutDisplayYUVOverlay(SDL_Vout *vout, SDL_VoutOverlay *overlay);
+extern DECLSPEC int SDLCALL SDL_VoutSetOverlayFormat(SDL_Vout *vout, Uint32 overlay_format);
 
-SDL_VoutOverlay *SDL_Vout_CreateOverlay(int width, int height, int frame_format, SDL_Vout *vout);
-int     SDL_VoutLockYUVOverlay(SDL_VoutOverlay *overlay);
-int     SDL_VoutUnlockYUVOverlay(SDL_VoutOverlay *overlay);
-void    SDL_VoutFreeYUVOverlay(SDL_VoutOverlay *overlay);
-void    SDL_VoutUnrefYUVOverlay(SDL_VoutOverlay *overlay);
-int     SDL_VoutFillFrameYUVOverlay(SDL_VoutOverlay *overlay, const AVFrame *frame);
+extern DECLSPEC SDL_VoutOverlay * SDLCALL SDL_Vout_CreateOverlay(int width, int height, int frame_format, SDL_Vout *vout);
+extern DECLSPEC int   SDLCALL  SDL_VoutLockYUVOverlay(SDL_VoutOverlay *overlay);
+extern DECLSPEC int   SDLCALL  SDL_VoutUnlockYUVOverlay(SDL_VoutOverlay *overlay);
+extern DECLSPEC void  SDLCALL  SDL_VoutFreeYUVOverlay(SDL_VoutOverlay *overlay);
+extern DECLSPEC void  SDLCALL  SDL_VoutUnrefYUVOverlay(SDL_VoutOverlay *overlay);
+extern DECLSPEC int   SDLCALL  SDL_VoutFillFrameYUVOverlay(SDL_VoutOverlay *overlay, const AVFrame *frame);
 
 #endif

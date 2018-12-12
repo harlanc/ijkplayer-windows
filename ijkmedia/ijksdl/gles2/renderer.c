@@ -21,13 +21,42 @@
 
 #include "internal.h"
 
+static bool initflag = false;
+
+#ifdef _WIN32
+static int IJK_GLES2_loadRenderFunctions()
+{
+    if(initflag)
+		return 0;
+	//sssss	return 0;
+	initflag = true;
+    void * handle = SDL_LoadObject("libGLESv2.dll");
+    global_render_data = (IJK_GLES2_RenderData *)calloc(1, sizeof(IJK_GLES2_RenderData));
+    #define SDL_PROC(ret,func,params) \
+        do { \
+            global_render_data->func = SDL_LoadFunction(handle,#func); \
+            if ( ! global_render_data->func ) { \
+                ALOGE("Couldn't load GLES function %s\n", #func); \
+                return -1; \
+            } \
+        } while(0);
+        #include "SDL_gles2funcs.h"
+    #undef SDL_PROC
+    return 0;
+}
+#endif
+
 static void IJK_GLES2_printProgramInfo(GLuint program)
 {
     if (!program)
         return;
 
     GLint info_len = 0;
+#ifdef _WIN32
+    global_render_data->glGetProgramiv(program, GL_INFO_LOG_LENGTH, &info_len);
+#else
     glGetProgramiv(program, GL_INFO_LOG_LENGTH, &info_len);
+#endif
     if (!info_len) {
         ALOGE("[GLES2][Program] empty info\n");
         return;
@@ -44,8 +73,11 @@ static void IJK_GLES2_printProgramInfo(GLuint program)
             buf_len = info_len;
         }
     }
-
+#ifdef _WIN32
+    global_render_data->glGetProgramInfoLog(program, buf_len, NULL, buf);
+#else
     glGetProgramInfoLog(program, buf_len, NULL, buf);
+#endif
     ALOGE("[GLES2][Program] error %s\n", buf);
 
     if (buf_heap)
@@ -56,21 +88,32 @@ void IJK_GLES2_Renderer_reset(IJK_GLES2_Renderer *renderer)
 {
     if (!renderer)
         return;
-
+#ifdef _WIN32
+    if (renderer->vertex_shader)
+        global_render_data->glDeleteShader(renderer->vertex_shader); IJK_GLES2_checkError("glDeleteShaderV");
+    if (renderer->fragment_shader)
+        global_render_data->glDeleteShader(renderer->fragment_shader);IJK_GLES2_checkError("glDeleteShaderF");
+    if (renderer->program)
+        global_render_data->glDeleteProgram(renderer->program);IJK_GLES2_checkError("glDeleteProgram");
+#else
     if (renderer->vertex_shader)
         glDeleteShader(renderer->vertex_shader);
     if (renderer->fragment_shader)
         glDeleteShader(renderer->fragment_shader);
     if (renderer->program)
         glDeleteProgram(renderer->program);
-
+#endif
     renderer->vertex_shader   = 0;
     renderer->fragment_shader = 0;
     renderer->program         = 0;
 
     for (int i = 0; i < IJK_GLES2_MAX_PLANE; ++i) {
         if (renderer->plane_textures[i]) {
+#ifdef _WIN32
+            global_render_data->glDeleteTextures(1, &renderer->plane_textures[i]);IJK_GLES2_checkError("glDeleteTextures");
+#else
             glDeleteTextures(1, &renderer->plane_textures[i]);
+#endif
             renderer->plane_textures[i] = 0;
         }
     }
@@ -123,6 +166,24 @@ IJK_GLES2_Renderer *IJK_GLES2_Renderer_create_base(const char *fragment_shader_s
     if (!renderer->fragment_shader)
         goto fail;
 
+
+#ifdef _WIN32
+    renderer->program = global_render_data->glCreateProgram();                          IJK_GLES2_checkError("glCreateProgram");
+    if (!renderer->program)
+        goto fail;
+    global_render_data->glAttachShader(renderer->program, renderer->vertex_shader);     IJK_GLES2_checkError("glAttachShader(vertex)");
+    global_render_data->glAttachShader(renderer->program, renderer->fragment_shader);   IJK_GLES2_checkError("glAttachShader(fragment)");
+    global_render_data->glLinkProgram(renderer->program);                               IJK_GLES2_checkError("glLinkProgram");
+    GLint link_status = GL_FALSE;
+    global_render_data->glGetProgramiv(renderer->program, GL_LINK_STATUS, &link_status); IJK_GLES2_checkError("glGetProgramiv");
+
+    if (!link_status)
+        goto fail;
+
+    renderer->av4_position = global_render_data->glGetAttribLocation(renderer->program, "av4_Position");                IJK_GLES2_checkError_TRACE("glGetAttribLocation(av4_Position)");
+    renderer->av2_texcoord = global_render_data->glGetAttribLocation(renderer->program, "av2_Texcoord");                IJK_GLES2_checkError_TRACE("glGetAttribLocation(av2_Texcoord)");
+    renderer->um4_mvp      = global_render_data->glGetUniformLocation(renderer->program, "um4_ModelViewProjection");    IJK_GLES2_checkError_TRACE("glGetUniformLocation(um4_ModelViewProjection)");
+#else
     renderer->program = glCreateProgram();                          IJK_GLES2_checkError("glCreateProgram");
     if (!renderer->program)
         goto fail;
@@ -139,7 +200,7 @@ IJK_GLES2_Renderer *IJK_GLES2_Renderer_create_base(const char *fragment_shader_s
     renderer->av4_position = glGetAttribLocation(renderer->program, "av4_Position");                IJK_GLES2_checkError_TRACE("glGetAttribLocation(av4_Position)");
     renderer->av2_texcoord = glGetAttribLocation(renderer->program, "av2_Texcoord");                IJK_GLES2_checkError_TRACE("glGetAttribLocation(av2_Texcoord)");
     renderer->um4_mvp      = glGetUniformLocation(renderer->program, "um4_ModelViewProjection");    IJK_GLES2_checkError_TRACE("glGetUniformLocation(um4_ModelViewProjection)");
-
+#endif
     return renderer;
 
 fail:
@@ -156,6 +217,10 @@ IJK_GLES2_Renderer *IJK_GLES2_Renderer_create(SDL_VoutOverlay *overlay)
 {
     if (!overlay)
         return NULL;
+
+	#ifdef _WIN32
+    IJK_GLES2_loadRenderFunctions();
+    #endif
 
     IJK_GLES2_printString("Version", GL_VERSION);
     IJK_GLES2_printString("Vendor", GL_VENDOR);
@@ -201,10 +266,17 @@ GLboolean IJK_GLES2_Renderer_isFormat(IJK_GLES2_Renderer *renderer, int format)
  */
 GLboolean IJK_GLES2_Renderer_setupGLES()
 {
+#ifdef _WIN32
+    global_render_data->glClearColor(0.0f, 0.0f, 0.0f, 1.0f);       IJK_GLES2_checkError_TRACE("glClearColor");
+    global_render_data->glEnable(GL_CULL_FACE);                     IJK_GLES2_checkError_TRACE("glEnable(GL_CULL_FACE)");
+    global_render_data->glCullFace(GL_BACK);                        IJK_GLES2_checkError_TRACE("glCullFace");
+    global_render_data->glDisable(GL_DEPTH_TEST);                   IJK_GLES2_checkError("glDisable");
+#else
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);       IJK_GLES2_checkError_TRACE("glClearColor");
     glEnable(GL_CULL_FACE);                     IJK_GLES2_checkError_TRACE("glEnable(GL_CULL_FACE)");
     glCullFace(GL_BACK);                        IJK_GLES2_checkError_TRACE("glCullFace");
     glDisable(GL_DEPTH_TEST);
+#endif
 
     return GL_TRUE;
 }
@@ -280,8 +352,14 @@ static void IJK_GLES2_Renderer_Vertices_apply(IJK_GLES2_Renderer *renderer)
 
 static void IJK_GLES2_Renderer_Vertices_reloadVertex(IJK_GLES2_Renderer *renderer)
 {
+#ifdef _WIN32
+    global_render_data->glVertexAttribPointer(renderer->av4_position, 2, GL_FLOAT, GL_FALSE, 0, renderer->vertices);    IJK_GLES2_checkError_TRACE("glVertexAttribPointer(av2_texcoord)");
+    global_render_data->glEnableVertexAttribArray(renderer->av4_position);                                      IJK_GLES2_checkError_TRACE("glEnableVertexAttribArray(av2_texcoord)");
+#else
     glVertexAttribPointer(renderer->av4_position, 2, GL_FLOAT, GL_FALSE, 0, renderer->vertices);    IJK_GLES2_checkError_TRACE("glVertexAttribPointer(av2_texcoord)");
     glEnableVertexAttribArray(renderer->av4_position);                                      IJK_GLES2_checkError_TRACE("glEnableVertexAttribArray(av2_texcoord)");
+#endif
+
 }
 
 #define IJK_GLES2_GRAVITY_MIN                   (0)
@@ -334,8 +412,13 @@ static void IJK_GLES2_Renderer_TexCoords_cropRight(IJK_GLES2_Renderer *renderer,
 
 static void IJK_GLES2_Renderer_TexCoords_reloadVertex(IJK_GLES2_Renderer *renderer)
 {
+#ifdef _WIN32
+    global_render_data->glVertexAttribPointer(renderer->av2_texcoord, 2, GL_FLOAT, GL_FALSE, 0, renderer->texcoords);   IJK_GLES2_checkError_TRACE("glVertexAttribPointer(av2_texcoord)");
+    global_render_data->glEnableVertexAttribArray(renderer->av2_texcoord);                                              IJK_GLES2_checkError_TRACE("glEnableVertexAttribArray(av2_texcoord)");
+#else
     glVertexAttribPointer(renderer->av2_texcoord, 2, GL_FLOAT, GL_FALSE, 0, renderer->texcoords);   IJK_GLES2_checkError_TRACE("glVertexAttribPointer(av2_texcoord)");
     glEnableVertexAttribArray(renderer->av2_texcoord);                                              IJK_GLES2_checkError_TRACE("glEnableVertexAttribArray(av2_texcoord)");
+#endif
 }
 
 /*
@@ -352,8 +435,11 @@ GLboolean IJK_GLES2_Renderer_use(IJK_GLES2_Renderer *renderer)
 
     IJK_GLES_Matrix modelViewProj;
     IJK_GLES2_loadOrtho(&modelViewProj, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
+#ifdef _WIN32
+    global_render_data->glUniformMatrix4fv(renderer->um4_mvp, 1, GL_FALSE, modelViewProj.m);                    IJK_GLES2_checkError_TRACE("glUniformMatrix4fv(um4_mvp)");
+#else
     glUniformMatrix4fv(renderer->um4_mvp, 1, GL_FALSE, modelViewProj.m);                    IJK_GLES2_checkError_TRACE("glUniformMatrix4fv(um4_mvp)");
-
+#endif
     IJK_GLES2_Renderer_TexCoords_reset(renderer);
     IJK_GLES2_Renderer_TexCoords_reloadVertex(renderer);
 
@@ -370,8 +456,11 @@ GLboolean IJK_GLES2_Renderer_renderOverlay(IJK_GLES2_Renderer *renderer, SDL_Vou
 {
     if (!renderer || !renderer->func_uploadTexture)
         return GL_FALSE;
-
+#ifdef _WIN32
+    global_render_data->glClear(GL_COLOR_BUFFER_BIT);				IJK_GLES2_checkError_TRACE("glClear");
+#else
     glClear(GL_COLOR_BUFFER_BIT);               IJK_GLES2_checkError_TRACE("glClear");
+#endif
 
     GLsizei visible_width  = renderer->frame_width;
     GLsizei visible_height = renderer->frame_height;
@@ -422,8 +511,13 @@ GLboolean IJK_GLES2_Renderer_renderOverlay(IJK_GLES2_Renderer *renderer, SDL_Vou
         IJK_GLES2_Renderer_TexCoords_cropRight(renderer, padding_normalized);
         IJK_GLES2_Renderer_TexCoords_reloadVertex(renderer);
     }
+#ifdef _WIN32
+    global_render_data->glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);      IJK_GLES2_checkError_TRACE("glDrawArrays");
+    global_render_data->glFlush();      IJK_GLES2_checkError_TRACE("glFlush");
 
+#else
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);      IJK_GLES2_checkError_TRACE("glDrawArrays");
+#endif
 
     return GL_TRUE;
 }

@@ -24,6 +24,25 @@
 static GLboolean rgb_use(IJK_GLES2_Renderer *renderer)
 {
     ALOGI("use render rgb\n");
+#ifdef _WIN32
+    global_render_data->glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    global_render_data->glUseProgram(renderer->program);            IJK_GLES2_checkError_TRACE("glUseProgram");
+
+    if (0 == renderer->plane_textures[0])
+        global_render_data->glGenTextures(1, renderer->plane_textures);
+
+    for (int i = 0; i < 1; ++i) {
+        global_render_data->glActiveTexture(GL_TEXTURE0 + i);
+        global_render_data->glBindTexture(GL_TEXTURE_2D, renderer->plane_textures[i]);
+
+        global_render_data->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        global_render_data->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        global_render_data->glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        global_render_data->glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        global_render_data->glUniform1i(renderer->us2_sampler[i], i);
+    }
+#else
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     glUseProgram(renderer->program);            IJK_GLES2_checkError_TRACE("glUseProgram");
@@ -42,7 +61,7 @@ static GLboolean rgb_use(IJK_GLES2_Renderer *renderer)
 
         glUniform1i(renderer->us2_sampler[i], i);
     }
-
+#endif
     return GL_TRUE;
 }
 
@@ -74,7 +93,19 @@ static GLboolean rgb565_uploadTexture(IJK_GLES2_Renderer *renderer, SDL_VoutOver
 
     for (int i = 0; i < 1; ++i) {
         int plane = planes[i];
+#ifdef _WIN32
+        global_render_data->glBindTexture(GL_TEXTURE_2D, renderer->plane_textures[i]);
 
+        global_render_data->glTexImage2D(GL_TEXTURE_2D,
+                     0,
+                     GL_RGB,
+                     widths[plane],
+                     heights[plane],
+                     0,
+                     GL_RGB,
+                     GL_UNSIGNED_SHORT_5_6_5,
+                     pixels[plane]);
+#else
         glBindTexture(GL_TEXTURE_2D, renderer->plane_textures[i]);
 
         glTexImage2D(GL_TEXTURE_2D,
@@ -86,6 +117,7 @@ static GLboolean rgb565_uploadTexture(IJK_GLES2_Renderer *renderer, SDL_VoutOver
                      GL_RGB,
                      GL_UNSIGNED_SHORT_5_6_5,
                      pixels[plane]);
+#endif
     }
 
     return GL_TRUE;
@@ -97,9 +129,11 @@ IJK_GLES2_Renderer *IJK_GLES2_Renderer_create_rgb565()
     IJK_GLES2_Renderer *renderer = IJK_GLES2_Renderer_create_base(IJK_GLES2_getFragmentShader_rgb());
     if (!renderer)
         goto fail;
-
+#ifdef _WIN32
+    renderer->us2_sampler[0] = global_render_data->glGetUniformLocation(renderer->program, "us2_SamplerX"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerX)");
+#else
     renderer->us2_sampler[0] = glGetUniformLocation(renderer->program, "us2_SamplerX"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerX)");
-
+#endif
     renderer->func_use            = rgb_use;
     renderer->func_getBufferWidth = rgb565_getBufferWidth;
     renderer->func_uploadTexture  = rgb565_uploadTexture;
@@ -140,7 +174,20 @@ static GLboolean rgb888_uploadTexture(IJK_GLES2_Renderer *renderer, SDL_VoutOver
 
     for (int i = 0; i < 1; ++i) {
         int plane = planes[i];
+#ifdef _WIN32
+        
+        global_render_data->glBindTexture(GL_TEXTURE_2D, renderer->plane_textures[i]);
 
+        global_render_data->glTexImage2D(GL_TEXTURE_2D,
+                     0,
+                     GL_RGB,
+                     widths[plane],
+                     heights[plane],
+                     0,
+                     GL_RGB,
+                     GL_UNSIGNED_BYTE,
+                     pixels[plane]);
+#else
         glBindTexture(GL_TEXTURE_2D, renderer->plane_textures[i]);
 
         glTexImage2D(GL_TEXTURE_2D,
@@ -152,6 +199,7 @@ static GLboolean rgb888_uploadTexture(IJK_GLES2_Renderer *renderer, SDL_VoutOver
                      GL_RGB,
                      GL_UNSIGNED_BYTE,
                      pixels[plane]);
+#endif
     }
 
     return GL_TRUE;
@@ -163,9 +211,11 @@ IJK_GLES2_Renderer *IJK_GLES2_Renderer_create_rgb888()
     IJK_GLES2_Renderer *renderer = IJK_GLES2_Renderer_create_base(IJK_GLES2_getFragmentShader_rgb());
     if (!renderer)
         goto fail;
-
+#ifdef _WIN32
+    renderer->us2_sampler[0] = global_render_data->glGetUniformLocation(renderer->program, "us2_SamplerX"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerX)");
+#else
     renderer->us2_sampler[0] = glGetUniformLocation(renderer->program, "us2_SamplerX"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerX)");
-
+#endif
     renderer->func_use            = rgb_use;
     renderer->func_getBufferWidth = rgb888_getBufferWidth;
     renderer->func_uploadTexture  = rgb888_uploadTexture;
@@ -206,7 +256,19 @@ static GLboolean rgbx8888_uploadTexture(IJK_GLES2_Renderer *renderer, SDL_VoutOv
 
     for (int i = 0; i < 1; ++i) {
         int plane = planes[i];
+#ifdef _WIN32
+        global_render_data->glBindTexture(GL_TEXTURE_2D, renderer->plane_textures[i]);
 
+        global_render_data->glTexImage2D(GL_TEXTURE_2D,
+                     0,
+                     GL_RGBA,
+                     widths[plane],
+                     heights[plane],
+                     0,
+                     GL_RGBA,
+                     GL_UNSIGNED_BYTE,
+                     pixels[plane]);
+#else
         glBindTexture(GL_TEXTURE_2D, renderer->plane_textures[i]);
 
         glTexImage2D(GL_TEXTURE_2D,
@@ -218,6 +280,7 @@ static GLboolean rgbx8888_uploadTexture(IJK_GLES2_Renderer *renderer, SDL_VoutOv
                      GL_RGBA,
                      GL_UNSIGNED_BYTE,
                      pixels[plane]);
+#endif
     }
 
     return GL_TRUE;
@@ -229,9 +292,12 @@ IJK_GLES2_Renderer *IJK_GLES2_Renderer_create_rgbx8888()
     IJK_GLES2_Renderer *renderer = IJK_GLES2_Renderer_create_base(IJK_GLES2_getFragmentShader_rgb());
     if (!renderer)
         goto fail;
-
+#ifdef _WIN32
+  
+    renderer->us2_sampler[0] = global_render_data->glGetUniformLocation(renderer->program, "us2_SamplerX"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerX)");
+#else
     renderer->us2_sampler[0] = glGetUniformLocation(renderer->program, "us2_SamplerX"); IJK_GLES2_checkError_TRACE("glGetUniformLocation(us2_SamplerX)");
-
+#endif
     renderer->func_use            = rgb_use;
     renderer->func_getBufferWidth = rgbx8888_getBufferWidth;
     renderer->func_uploadTexture  = rgbx8888_uploadTexture;
